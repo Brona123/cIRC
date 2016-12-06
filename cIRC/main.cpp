@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <CommCtrl.h>
+#include <string>
 #include "irc.h"
 #include "custom_msg.h"
 
@@ -25,6 +26,16 @@
 #define MAX_NICK_LEN 100                // max length of user nickname
 #define MAX_USERS_PER_CHANNEL 100
 
+struct UI {
+	HWND textField;
+	HWND channelList;
+	HWND userList;
+	HWND inputField;
+	HWND terminateBtn;
+	HWND channelCount;
+	HWND tabCtrl;
+};
+
 WNDPROC oldEditProc;
 WNDPROC oldTabCtrlProc;
 static UI ui;
@@ -35,6 +46,145 @@ int currTabSelection = 0;
 //:keijo_!webchat@dsl-trebrasgw2-54f944-149.dhcp.inet.fi PRIVMSG #kekbottestchannel :moro
 //:keijo_!webchat@dsl-trebrasgw2-54f944-149.dhcp.inet.fi MODE #kekbottestchannel +v kekbot
 //:keijo_!webchat@dsl-trebrasgw2-54f944-149.dhcp.inet.fi PRIVMSG kekbot :moro
+
+static void appendText(HWND textField, const char *text) {
+	int left, right;
+	int len = GetWindowTextLength(textField);
+	SendMessageA(textField, EM_GETSEL, (WPARAM)&left, (LPARAM)&right);
+	SendMessageA(textField, EM_SETSEL, len, len);
+	SendMessageA(textField, EM_REPLACESEL, 0, (LPARAM)text);
+	SendMessageA(textField, EM_SETSEL, left, right);
+}
+
+static void addTab(HWND tabCtrl, const char *tabName) {
+	static TCITEM t;
+	t.mask = TCIF_TEXT;
+	t.pszText = (LPSTR)tabName;
+	t.cchTextMax = strlen(tabName);
+
+	int tabCount = SendMessage(tabCtrl, TCM_GETITEMCOUNT, 0, 0);
+	PostMessage(tabCtrl, TCM_INSERTITEM, tabCount, (LPARAM)(&t));
+	PostMessage(tabCtrl, TCM_SETCURSEL, tabCount, 0);
+}
+
+static void handleForeignJoin(HWND tabCtrl, const char *channelName, const char *userName) {
+	appendText(ui.textField, "<<Foreign Join>>");
+	appendText(ui.textField, channelName);
+	appendText(ui.textField, "--");
+	appendText(ui.textField, userName);
+	appendText(ui.textField, "\r\n");
+
+	SendMessage(tabCtrl, FOREIGN_JOIN, (WPARAM)channelName, (LPARAM)userName);
+}
+
+void callback(char *response) {
+	OutputDebugStringA(response);
+	char tmpbuf[512];
+	strcpy(tmpbuf, response);
+	
+	int i = 0;
+
+	// Handle first argument
+	char *word = strtok(tmpbuf, " ");
+
+	if (strcmp(word, "PING") == 0) {
+		word = strtok(NULL, " ");
+
+		std::string s1("PONG ");
+		std::string s2(word);
+		irc_sendText((s1 + s2).c_str());
+		appendText(ui.textField, "<<Responded to PING>>\n");
+	} else if (strcmp(word, "NOTICE") == 0) {
+		word = strtok(NULL, " ");
+
+		std::string s1("<<Notify>>");
+		std::string s2(word + std::string("\r\n"));
+		appendText(ui.textField, (s1 + s2).c_str());
+	} else if (strcmp(word, "PRIVMSG") == 0) {
+	    // TODO handle privmsg
+		appendText(ui.textField, "<<Privmsg>>");
+		OutputDebugStringA(tmpbuf);
+	} else {
+		// Handle second argument
+		word = strtok(NULL, " ");
+
+		if (strcmp(word, "JOIN") == 0) { // Successful channel join
+			char *channel = strtok(NULL, " ");
+			char *name = strtok(response, "!");
+
+			// Discard the endline
+			channel[strlen(channel) - 1] = 0;
+
+			// Discard the initial ":"
+			for (int i = 0; i < strlen(name); ++i)
+				name[i] = name[i+1];
+
+			name[strlen(name)] = 0;
+
+			// We joined a new channel
+			if (strcmp(name, "kekbot") == 0) {
+				addTab(ui.tabCtrl, channel);
+			// Someone else joined our channel
+			} else {
+				handleForeignJoin(ui.tabCtrl, channel, name);
+			}
+
+			//appendText(ui->textField, recvbuf);
+		} else if (strcmp(word, MOTD) == 0) {
+			char *msg = strstr(response, ":-");  // The actual message
+
+			if (msg) {
+				std::string s1("<<MOTD>>");
+				std::string s2(msg);
+
+				appendText(ui.textField, (s1 + s2).c_str());
+			}
+		} else if (strcmp(word, CHANNELINFO) == 0) {
+			char *substr = strstr(response, "#");
+			char *topic = strstr(substr, ":");
+			char *channel = strtok(substr, " ");
+
+			std::string s1("<<CHANNEL>> ");
+			std::string s2(std::string(channel) + std::string("\r\n"));
+
+			SendMessage(ui.channelList, LB_ADDSTRING, 0, (LPARAM)channel);
+			
+			char buf[128];
+			int itemCount = GetListBoxInfo(ui.channelList);
+			sprintf(buf, "Current LBS item count: %d\n", itemCount);
+			OutputDebugStringA(buf);
+			
+			//appendText(*ui, (s1 + s2).c_str());
+
+			// If channel has topic
+			if (strlen(topic) > 1) {
+				s1 = ":Topic:";
+				s2 = topic;
+
+				//appendText(*ui, (s1 + s2).c_str());
+			}
+
+		} else if (strcmp(word, NAMES) == 0) {
+			appendText(ui.textField, response);
+			char *res = strstr(response, "=");
+			char *channel = strstr(res, "#");
+			char *namelist = strstr(res, ":");
+
+			char *name = strtok(namelist, " ");
+			strncpy(name, name + 1, strlen(name) - 1); // To remove the starting ":"
+			name[strlen(name) - 1] = 0;
+
+			while (name) {
+				SendMessage(ui.userList, LB_ADDSTRING, 0, (LPARAM)name);
+				name = strtok(NULL, " ");
+			}
+			
+		} else {
+			// Leftover messages (not handled yet)
+			appendText(ui.textField, response);
+		}
+	}
+}
 
 static void append(const char *s1, const char *s2, char *resbuf) {
 	size_t s1len = strlen(s1);
@@ -130,8 +280,8 @@ LRESULT CALLBACK TabControlProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 		case WM_COMMAND: {
 			if (HIWORD(wParam) == BN_CLICKED) {
 				if ((HWND)lParam == ui.terminateBtn) {
-					irc_sendText("QUIT Client terminated", ui);
-					irc_terminateConnection(ui);
+					irc_sendText("QUIT Client terminated");
+					irc_terminateConnection();
 				}
 			}
 		} break;
@@ -160,21 +310,24 @@ LRESULT CALLBACK EditControlProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 				
 
 				if (strcmp(word, "/connect") == 0) {
-					irc_connect(strtok(NULL, " "), ui);
+					irc_connect(strtok(NULL, " "), callback);
 				} else if (strcmp(word, "/join") == 0) {
 					char cmd[MAX_TEXT_LEN] = {};
 					append("JOIN ", strtok(NULL, " "), cmd);
+					append(cmd, "\r\n", cmd);
 
-					irc_sendText(cmd, ui);
+					irc_sendText(cmd);
 				} else if (strcmp(word, "/quit") == 0) {
 					char cmd[MAX_TEXT_LEN] = {};
 					append("QUIT ", strtok(NULL, " "), cmd);
+					append(cmd, "\r\n", cmd);
 
-					irc_sendText(cmd, ui);
+					irc_sendText(cmd);
 				} else if (strcmp(word, "/list") == 0) {
-					irc_sendText("LIST", ui);
+					irc_sendText("LIST");
 				} else {
-					irc_sendText(tmp_buf, ui);
+					append(tmp_buf, "\r\n", tmp_buf);
+					irc_sendText(tmp_buf);
 				}
 
 				SetWindowTextA(hwnd, "");

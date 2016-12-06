@@ -1,18 +1,12 @@
 #ifndef IRC_H
 #define IRC_H
 
-struct UI {
-	HWND textField;
-	HWND channelList;
-	HWND userList;
-	HWND inputField;
-	HWND terminateBtn;
-	HWND channelCount;
-	HWND tabCtrl;
-};
+#define MOTD "372"
+#define CHANNELINFO "322"
+#define NAMES "353"
 
-bool irc_connect(char *connData, UI ui);
-void irc_terminateConnection(UI ui);
-bool irc_sendText(const char *text, UI ui);
+bool irc_connect(char *connData, void (*callback)(char *response));
+void irc_terminateConnection();
+bool irc_sendText(const char *text);
 
 #endif
