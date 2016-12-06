@@ -1,0 +1,49 @@
+﻿Build started 29.11.2016 21:36:38.
+     1>Project "F:\Work\VSProjects\cIRC\cIRC\cIRC.vcxproj" on node 2 (build target(s)).
+     1>PrepareForBuild:
+         Creating directory "F:\Work\VSProjects\cIRC\Debug\".
+       InitializeBuildStatus:
+         Creating "Debug\cIRC.unsuccessfulbuild" because "AlwaysCreate" was specified.
+       ClCompile:
+         F:\Work\VS10\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /Od /Oy- /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt irc.cpp main.cpp
+         main.cpp
+     1>f:\work\vsprojects\circ\circ\main.cpp(44): warning C4018: '<' : signed/unsigned mismatch
+     1>f:\work\vsprojects\circ\circ\main.cpp(61): warning C4018: '<' : signed/unsigned mismatch
+     1>f:\work\vsprojects\circ\circ\main.cpp(81): warning C4996: 'strtok': This function or variable may be unsafe. Consider using strtok_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 f:\work\vs10\vc\include\string.h(197) : see declaration of 'strtok'
+     1>f:\work\vsprojects\circ\circ\main.cpp(85): warning C4996: 'strtok': This function or variable may be unsafe. Consider using strtok_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 f:\work\vs10\vc\include\string.h(197) : see declaration of 'strtok'
+     1>f:\work\vsprojects\circ\circ\main.cpp(120): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 f:\work\vs10\vc\include\string.h(105) : see declaration of 'strcpy'
+     1>f:\work\vsprojects\circ\circ\main.cpp(122): warning C4996: 'strtok': This function or variable may be unsafe. Consider using strtok_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 f:\work\vs10\vc\include\string.h(197) : see declaration of 'strtok'
+     1>f:\work\vsprojects\circ\circ\main.cpp(129): warning C4996: 'strtok': This function or variable may be unsafe. Consider using strtok_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 f:\work\vs10\vc\include\string.h(197) : see declaration of 'strtok'
+     1>f:\work\vsprojects\circ\circ\main.cpp(132): warning C4996: 'strtok': This function or variable may be unsafe. Consider using strtok_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 f:\work\vs10\vc\include\string.h(197) : see declaration of 'strtok'
+     1>f:\work\vsprojects\circ\circ\main.cpp(137): warning C4996: 'strtok': This function or variable may be unsafe. Consider using strtok_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 f:\work\vs10\vc\include\string.h(197) : see declaration of 'strtok'
+         irc.cpp
+     1>f:\work\vsprojects\circ\circ\irc.cpp(125): warning C4018: '<' : signed/unsigned mismatch
+         Generating Code...
+       Link:
+         F:\Work\VS10\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"F:\Work\VSProjects\cIRC\Debug\cIRC.exe" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Debug\cIRC.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"F:\Work\VSProjects\cIRC\Debug\cIRC.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"F:\Work\VSProjects\cIRC\Debug\cIRC.lib" /MACHINE:X86 Debug\irc.obj
+         Debug\main.obj
+     1>irc.obj : error LNK2019: unresolved external symbol __imp__recv@16 referenced in function "unsigned int __stdcall socketListener(void *)" (?socketListener@@YGIPAX@Z)
+     1>irc.obj : error LNK2019: unresolved external symbol __imp__send@16 referenced in function "bool __cdecl irc_connect(char *,struct UI)" (?irc_connect@@YA_NPADUUI@@@Z)
+     1>irc.obj : error LNK2019: unresolved external symbol __imp__closesocket@4 referenced in function "bool __cdecl irc_connect(char *,struct UI)" (?irc_connect@@YA_NPADUUI@@@Z)
+     1>irc.obj : error LNK2019: unresolved external symbol __imp__connect@12 referenced in function "bool __cdecl irc_connect(char *,struct UI)" (?irc_connect@@YA_NPADUUI@@@Z)
+     1>irc.obj : error LNK2019: unresolved external symbol __imp__freeaddrinfo@4 referenced in function "bool __cdecl irc_connect(char *,struct UI)" (?irc_connect@@YA_NPADUUI@@@Z)
+     1>irc.obj : error LNK2019: unresolved external symbol __imp__WSAGetLastError@0 referenced in function "bool __cdecl irc_connect(char *,struct UI)" (?irc_connect@@YA_NPADUUI@@@Z)
+     1>irc.obj : error LNK2019: unresolved external symbol __imp__socket@12 referenced in function "bool __cdecl irc_connect(char *,struct UI)" (?irc_connect@@YA_NPADUUI@@@Z)
+     1>irc.obj : error LNK2019: unresolved external symbol __imp__WSACleanup@0 referenced in function "bool __cdecl irc_connect(char *,struct UI)" (?irc_connect@@YA_NPADUUI@@@Z)
+     1>irc.obj : error LNK2019: unresolved external symbol __imp__getaddrinfo@16 referenced in function "bool __cdecl irc_connect(char *,struct UI)" (?irc_connect@@YA_NPADUUI@@@Z)
+     1>irc.obj : error LNK2019: unresolved external symbol __imp__WSAStartup@8 referenced in function "bool __cdecl irc_connect(char *,struct UI)" (?irc_connect@@YA_NPADUUI@@@Z)
+     1>irc.obj : error LNK2019: unresolved external symbol __imp__shutdown@8 referenced in function "void __cdecl irc_terminateConnection(struct UI)" (?irc_terminateConnection@@YAXUUI@@@Z)
+     1>main.obj : error LNK2019: unresolved external symbol __imp__InitCommonControlsEx@4 referenced in function "long __stdcall WndProc(struct HWND__ *,unsigned int,unsigned int,long)" (?WndProc@@YGJPAUHWND__@@IIJ@Z)
+     1>F:\Work\VSProjects\cIRC\Debug\cIRC.exe : fatal error LNK1120: 12 unresolved externals
+     1>Done Building Project "F:\Work\VSProjects\cIRC\cIRC\cIRC.vcxproj" (build target(s)) -- FAILED.
+
+Build FAILED.
+
+Time Elapsed 00:00:01.00
