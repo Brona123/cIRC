@@ -21,10 +21,12 @@
   <ItemGroup>
     <ClCompile Include="irc.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="ui.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="custom_msg.h" />
     <ClInclude Include="irc.h" />
+    <ClInclude Include="ui.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{F7E77A2B-E9E6-4F0C-A9E2-1E6528E5EE16}</ProjectGuid>

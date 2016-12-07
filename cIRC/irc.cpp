@@ -14,6 +14,7 @@ HANDLE threadHandle;
 // The function to be called with the data from the listener socket
 void (*_callback)(char *response);
 
+// TODO move this function into its own header?
 static void append(const char *s1, const char *s2, char *resbuf) {
 	size_t s1len = strlen(s1);
 	for (int i = 0; i < s1len; ++i) {
