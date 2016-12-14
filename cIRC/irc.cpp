@@ -73,7 +73,6 @@ bool irc_connect(char *connData, void (*callback)(char *response)) {
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	// dreamhack.se.quakenet.org 77.80.253.131
 	char *server = strtok(connData, ":");
 	char *port = strtok(NULL, ":");
 
@@ -135,6 +134,8 @@ bool irc_sendText(const char *text) {
 }
 
 void irc_terminateConnection() {
+	if (!listeningSocket) return;
+
 	listeningSocket = false;
 	CloseHandle(threadHandle);
 	int iResult = shutdown(connectSocket, SD_BOTH);

@@ -1,32 +1,11 @@
-﻿Build started 7.12.2016 11:57:59.
+﻿Build started 14.12.2016 23:28:23.
      1>Project "F:\Work\VSProjects\cIRC\cIRC\cIRC.vcxproj" on node 2 (build target(s)).
      1>InitializeBuildStatus:
          Creating "x64\Debug\cIRC.unsuccessfulbuild" because "AlwaysCreate" was specified.
        ClCompile:
-         F:\Work\VS10\VC\bin\x86_amd64\CL.exe /c /Zi /nologo /W3 /WX- /MP /Od /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"x64\Debug\\" /Fd"x64\Debug\vc100.pdb" /Gd /TP /errorReport:prompt main.cpp ui.cpp
-     1>cl : Command line warning D9030: '/Gm' is incompatible with multiprocessing; ignoring /MP switch
-         ui.cpp
-     1>ui.cpp(75): warning C4267: '=' : conversion from 'size_t' to 'int', possible loss of data
-     1>ui.cpp(77): warning C4244: 'initializing' : conversion from 'LRESULT' to 'int', possible loss of data
-     1>ui.cpp(106): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 F:\Work\VS10\VC\include\stdio.h(371) : see declaration of 'sprintf'
-     1>ui.cpp(141): warning C4996: 'strtok': This function or variable may be unsafe. Consider using strtok_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 F:\Work\VS10\VC\include\string.h(197) : see declaration of 'strtok'
-     1>ui.cpp(145): warning C4996: 'strtok': This function or variable may be unsafe. Consider using strtok_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 F:\Work\VS10\VC\include\string.h(197) : see declaration of 'strtok'
-     1>ui.cpp(197): warning C4244: 'argument' : conversion from 'WPARAM' to 'int', possible loss of data
-     1>ui.cpp(212): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 F:\Work\VS10\VC\include\string.h(105) : see declaration of 'strcpy'
-     1>ui.cpp(214): warning C4996: 'strtok': This function or variable may be unsafe. Consider using strtok_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 F:\Work\VS10\VC\include\string.h(197) : see declaration of 'strtok'
-     1>ui.cpp(221): warning C4996: 'strtok': This function or variable may be unsafe. Consider using strtok_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 F:\Work\VS10\VC\include\string.h(197) : see declaration of 'strtok'
-     1>ui.cpp(225): warning C4996: 'strtok': This function or variable may be unsafe. Consider using strtok_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 F:\Work\VS10\VC\include\string.h(197) : see declaration of 'strtok'
-     1>ui.cpp(232): warning C4996: 'strtok': This function or variable may be unsafe. Consider using strtok_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 F:\Work\VS10\VC\include\string.h(197) : see declaration of 'strtok'
+         F:\Work\VS10\VC\bin\x86_amd64\CL.exe /c /Zi /nologo /W3 /WX- /MP /Od /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"x64\Debug\\" /Fd"x64\Debug\vc100.pdb" /Gd /TP /errorReport:prompt main.cpp
          main.cpp
-         Generating Code...
+     1>main.cpp(44): warning C4267: '+=' : conversion from 'size_t' to 'int', possible loss of data
        Link:
          F:\Work\VS10\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"F:\Work\VSProjects\cIRC\x64\Debug\cIRC.exe" /NOLOGO Ws2_32.lib ComCtl32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"x64\Debug\cIRC.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"F:\Work\VSProjects\cIRC\x64\Debug\cIRC.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"F:\Work\VSProjects\cIRC\x64\Debug\cIRC.lib" /MACHINE:X64 x64\Debug\irc.obj
          x64\Debug\main.obj
@@ -42,4 +21,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:00.82
+Time Elapsed 00:00:00.54

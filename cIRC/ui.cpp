@@ -1,4 +1,5 @@
 #include <Windows.h>
+#include <stdarg.h>
 #include <stdio.h>  // tmp debugging
 #include <CommCtrl.h>
 #include "ui.h"
@@ -10,6 +11,7 @@
 #define USERLIST 3
 #define TEXTVIEW 4
 #define TERMINATE_BUTTON 5
+#define TAB_CTRL 6
 
 #define MAX_CHANNEL_NAME_LEN 128
 #define MAX_TEXT_LEN 512
@@ -18,37 +20,62 @@
 #define MAX_NICK_LEN 100                // max length of user nickname
 #define MAX_USERS_PER_CHANNEL 100
 
+#define TEXT_VIEW_BG RGB(27, 28, 22)
+#define TEXT_VIEW_FG RGB(255, 0, 0)
+
 struct UI {
 	HWND textField;
 	HWND channelList;
 	HWND userList;
 	HWND inputField;
 	HWND terminateBtn;
-	HWND channelCount;
+	HWND channelQueryBtn;
 	HWND tabCtrl;
 };
 
 // Handles to old process handlers used for custom msg handling
 WNDPROC oldEditProc;
 WNDPROC oldTabCtrlProc;
+WNDPROC oldQueryChannelsProc;
+WNDPROC oldChannelListProc;
 
 char channelTextBuf[MAX_CHANNEL_TABS][MAX_TEXT_BUF_PER_CHANNEL] = {};
+// Names in the current channel, not the channel names themselves
 char channelNameBuf[MAX_CHANNEL_TABS][MAX_NICK_LEN * MAX_USERS_PER_CHANNEL] = {};
 int currTabSelection = 0;
 static UI ui;
 
+// Text view background brush
+HBRUSH textViewBg;
+
 void (*uiCallback)(Action action, const char *data);
 
-// TODO move this function into its own header?
-static void append(const char *s1, const char *s2, char *resbuf) {
-	size_t s1len = strlen(s1);
-	for (int i = 0; i < s1len; ++i) {
-		resbuf[i] = s1[i];
+static void str_append(char *resbuf, int argc, ...) {
+	va_list ap;
+	va_start(ap, argc);
+
+	int currLen = 0;
+
+	for (int i = 0; i < argc; ++i) {
+		const char *p = va_arg(ap, char*);
+		
+		for (int j = currLen, k = 0; j < currLen + strlen(p); ++j, ++k) {
+			resbuf[j] = p[k];
+		}
+
+		currLen += strlen(p);
 	}
 
-	for (int i = 0; i < strlen(s2); ++i) {
-		resbuf[s1len + i] = s2[i];
-	}
+	va_end(ap);
+}
+
+static void currentTabName(char *outputbuf) {
+	TCITEM t = {};
+	t.mask = TCIF_TEXT;
+	t.pszText = outputbuf;
+	t.cchTextMax = MAX_CHANNEL_NAME_LEN;
+
+	TabCtrl_GetItem(ui.tabCtrl, currTabSelection, &t);
 }
 
 void ui_init(void (*callback)(Action action, const char *data)) {
@@ -79,6 +106,62 @@ void ui_addTab(const char *tabName) {
 	PostMessage(ui.tabCtrl, TCM_SETCURSEL, tabCount, 0);
 }
 
+void ui_handlePrivMsg(const char *sender, const char *receiver, const char *msg) {
+	char channelName[MAX_CHANNEL_NAME_LEN];
+	currentTabName(channelName);
+
+	// TODO replace '\r' or '\n' because for some reason it is there
+	char lastChar = channelName[strlen(channelName) - 1];
+	if (lastChar == '\n' || lastChar == '\r') {
+		channelName[strlen(channelName) - 1] = '\0';
+	}
+
+	// PRIVMSG sent directly to us
+	if (strcmp(receiver, "kekbot") == 0) {
+		// Currently looking at the main tab
+		if (strcmp(channelName, "Main") == 0) {
+			char buf[MAX_TEXT_LEN] = {};
+			str_append(buf, 5, "[", sender, "] ", msg, "\n");
+			ui_appendText(buf);
+		} else {
+			char buf[MAX_TEXT_LEN] = {};
+			str_append(buf, 5, "[", sender, "] ", msg, "\n");
+			str_append(channelTextBuf[0], 2, channelTextBuf[0], buf);
+		}
+	} else {
+		// PRIVMSG sent to the current visible channel
+		if (strcmp(channelName, receiver) == 0) {
+			char buf[MAX_TEXT_LEN] = {};
+			str_append(buf, 5, "[", sender, "] ", msg, "\n");
+			ui_appendText(buf);
+		// PRIVMSG sent to a channel currently not visible
+		} else {
+			int tabCount = SendMessage(ui.tabCtrl, TCM_GETITEMCOUNT, 0, 0);
+
+			// Find the correct channel and append to its text buffer
+			for (int i = 0; i < tabCount; ++i) {
+				char tabName[MAX_CHANNEL_NAME_LEN] = {};
+
+				TCITEM t = {};
+				t.mask = TCIF_TEXT;
+				t.pszText = tabName;
+				t.cchTextMax = MAX_CHANNEL_NAME_LEN;
+
+				TabCtrl_GetItem(ui.tabCtrl, i, &t);
+
+				tabName[strlen(tabName) - 1] = '\0';
+
+				if (strcmp(receiver, tabName) == 0) {
+					char buf[MAX_TEXT_LEN] = {};
+					str_append(buf, 5, "[", sender, "] ", msg, "\n");
+					str_append(channelTextBuf[i], 2, channelTextBuf[i], buf);
+					break;
+				}
+			}
+		}
+	}
+}
+
 void ui_handleForeignJoin(const char *channelName, const char *userName) {
 	ui_appendText("<<Foreign Join>>");
 	ui_appendText(channelName);
@@ -104,17 +187,6 @@ void ui_changeChannel() {
 
 // Function used when joining a new channel for the first time
 void ui_changeChannel(int newChannelIndex) {
-	char tmpbuf[128];
-	sprintf(tmpbuf, "CHANNEL INDEX: %d\n", newChannelIndex);
-	OutputDebugStringA(tmpbuf);
-
-
-	char buf[MAX_CHANNEL_NAME_LEN] = {};
-	TCITEM t = {};
-	t.mask = TCIF_TEXT;
-	t.pszText = buf;
-	t.cchTextMax = sizeof(buf);
-
 	// Get the current text in the text view
 	char currText[MAX_TEXT_BUF_PER_CHANNEL];
 	GetWindowText(ui.textField, currText, MAX_TEXT_BUF_PER_CHANNEL);
@@ -131,13 +203,10 @@ void ui_changeChannel(int newChannelIndex) {
 	for (int i = 0; i < userCount; ++i) {
 		char name[MAX_NICK_LEN] = {};
 		SendMessage(ui.userList, LB_GETTEXT, 0, (LPARAM)name);
-		name[strlen(name)] = '\n';
-		append(channelNameBuf[currTabSelection], name, channelNameBuf[currTabSelection]);
+		// TODO maybe change str_append to work better for these situations?
+		str_append(channelNameBuf[currTabSelection], 3, channelNameBuf[currTabSelection], name, "\n");
 		SendMessage(ui.userList, LB_DELETESTRING, 0, 0);
 	}
-
-	OutputDebugStringA("CHANNEL NAME LIST \n");
-	OutputDebugStringA(channelNameBuf[currTabSelection]);
 
 	// Add the new channel users back to listbox
 	char *name = strtok(channelNameBuf[newChannelIndex], "\n");
@@ -152,9 +221,72 @@ void ui_changeChannel(int newChannelIndex) {
 	currTabSelection = newChannelIndex;
 }
 
-LRESULT CALLBACK TabControlProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK ChannelListProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	switch(msg) {
+		case WM_COMMAND: {
+			// Clicked a channel in the list
+			if (HIWORD(wParam) == LBN_DBLCLK) {
+				int index = SendMessage(hwnd, LB_GETCURSEL, 0, 0);
 
+				char buf[MAX_CHANNEL_NAME_LEN] = {};
+				SendMessage(hwnd, LB_GETTEXT, index, (LPARAM)buf);
+
+				OutputDebugStringA("CHANNEL NAME\n");
+				OutputDebugStringA(buf);
+
+				// TODO prompt dialog for joining this channel
+			}
+		} break;
+	}
+
+	return CallWindowProc(oldChannelListProc, hwnd, msg, wParam, lParam);
+}
+
+LRESULT CALLBACK QueryChannelsBtnProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	switch(msg) {
+		case WM_COMMAND: {
+			if (HIWORD(wParam) == BN_CLICKED) {
+				uiCallback(IRC_QUERY_CHANNELS, "LIST\r\n");
+				OutputDebugStringA("QUERY CHANNELS\n");
+			}
+		} break;
+	}
+	
+	return CallWindowProc(oldQueryChannelsProc, hwnd, msg, wParam, lParam);
+}
+
+LRESULT CALLBACK TabControlProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	switch (msg) {
+		case WM_DESTROY: {
+			// When app is closing
+			DeleteObject(textViewBg);
+		} break;
+		case WM_PARENTNOTIFY: {
+			switch(LOWORD(wParam)) {
+				case WM_CREATE: {
+					// When this child window was created
+					if (HIWORD(wParam) == TEXTVIEW) {
+						textViewBg = CreateSolidBrush(TEXT_VIEW_BG);
+					}
+				} break;
+			}
+		} break;
+		case WM_CTLCOLORSTATIC: {
+			// Set the colors of the text view
+		    HDC hdc = (HDC)wParam;
+			SetBkColor(hdc, TEXT_VIEW_BG);
+		    SetTextColor(hdc, TEXT_VIEW_FG);
+
+		    return (LRESULT)textViewBg;
+		}
+		case WM_CTLCOLOREDIT: {
+			// Set the colors of the text input
+		    HDC hdc = (HDC)wParam;
+			SetBkColor(hdc, TEXT_VIEW_BG);
+		    SetTextColor(hdc, TEXT_VIEW_FG);
+
+		    return (LRESULT)textViewBg;
+		}
 		case FOREIGN_JOIN: {
 			char *channel = (char*)wParam;
 			char *userNick = (char*)lParam;
@@ -163,14 +295,10 @@ LRESULT CALLBACK TabControlProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 			// Get the index of the channel where the foreigner joined to
 			char buf[MAX_CHANNEL_NAME_LEN] = {};
-			TCITEM t = {};
-			t.mask = TCIF_TEXT;
-			t.pszText = buf;
-			t.cchTextMax = MAX_CHANNEL_NAME_LEN;
+			currentTabName(buf);
 
 			int channelIndex = -1;
 			for (int i = 0; i < tabCount; ++i) {
-				TabCtrl_GetItem(hwnd, i, &t);
 				if (strcmp(buf, channel) == 0) {
 					channelIndex = i;
 				}
@@ -181,10 +309,7 @@ LRESULT CALLBACK TabControlProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 				SendMessage(ui.userList, LB_ADDSTRING, 0, (LPARAM)userNick);
 			} else {
 				// Foreigner joined a channel we're not currently viewing
-				char tmp[MAX_NICK_LEN] = {};
-				append(tmp, userNick, tmp);
-				tmp[strlen(tmp)] = '\n';   // Add name list delimeter
-				append(channelNameBuf[channelIndex], tmp, channelNameBuf[channelIndex]);
+				str_append(channelNameBuf[channelIndex], 2, userNick, "\n");
 			}
 
 		} break;
@@ -218,31 +343,30 @@ LRESULT CALLBACK EditControlProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 				if (!word) // return if empty text field
 					return CallWindowProc(oldEditProc, hwnd, msg, wParam, lParam);
 				
-
 				if (strcmp(word, "/connect") == 0) {
 					uiCallback(IRC_CONNECT, strtok(NULL, " "));
-					//irc_connect(strtok(NULL, " "), callback);
 				} else if (strcmp(word, "/join") == 0) {
 					char cmd[MAX_TEXT_LEN] = {};
-					append("JOIN ", strtok(NULL, " "), cmd);
-					append(cmd, "\r\n", cmd);
+					str_append(cmd, 3, "JOIN ", strtok(NULL, " "), "\r\n");
 
 					uiCallback(IRC_SEND_TEXT, cmd);
-					//irc_sendText(cmd);
 				} else if (strcmp(word, "/quit") == 0) {
 					char cmd[MAX_TEXT_LEN] = {};
-					append("QUIT ", strtok(NULL, " "), cmd);
-					append(cmd, "\r\n", cmd);
+					str_append(cmd, 3, "QUIT ", strtok(NULL, " "), "\r\n");
 
 					uiCallback(IRC_SEND_TEXT, cmd);
-					//irc_sendText(cmd);
 				} else if (strcmp(word, "/list") == 0) {
 					uiCallback(IRC_SEND_TEXT, "LIST");
-					//irc_sendText("LIST");
 				} else {
-					append(tmp_buf, "\r\n", tmp_buf);
-					uiCallback(IRC_SEND_TEXT, tmp_buf);
-					//irc_sendText(tmp_buf);
+					char buf[MAX_CHANNEL_NAME_LEN] = {};
+					currentTabName(buf);
+					buf[strlen(buf) - 1] = '\0'; // replace '\n' with '0'
+
+					
+					char tmp_msg[MAX_TEXT_LEN * 2] = {};
+					str_append(tmp_msg, 5, "PRIVMSG ", buf, " :", tmp_buf, "\r\n");
+
+					uiCallback(IRC_SEND_TEXT, tmp_msg);
 				}
 
 				SetWindowTextA(hwnd, "");
@@ -270,7 +394,7 @@ void ui_resizeComponents(int wWidth, int wHeight) {
 	int textviewWidth = wWidth - (listboxWidth * 2 + margin * 2);
 
 	// Resize main window child components
-	SetWindowPos(ui.channelCount, 0, 0, globalY - 20, listboxWidth, 20, 0);
+	SetWindowPos(ui.channelQueryBtn, 0, 0, globalY - 20, listboxWidth, 20, 0);
 	SetWindowPos(ui.channelList, 0, 0, globalY, listboxWidth, wHeight - globalY, 0);
 	SetWindowPos(ui.tabCtrl, 0, listboxWidth + margin, globalY, wWidth - (listboxWidth + margin), wHeight - globalY, 0);
 	
@@ -288,22 +412,24 @@ void ui_createComponents(HWND root, int wWidth, int wHeight) {
 	InitCommonControlsEx(&icex);
 
 	// Channel counter
-	HWND channelCount = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("Edit"),
-		TEXT("Channel count"), WS_CHILD | WS_VISIBLE | SS_LEFT,
+	HWND channelQueryBtn = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("Button"),
+		TEXT("Query channels"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON,
 		0, 30, 80, 20,
 		root, (HMENU)42, NULL, NULL);
+	oldQueryChannelsProc = (WNDPROC)SetWindowLongPtr(channelQueryBtn, GWLP_WNDPROC, (LONG_PTR)QueryChannelsBtnProc);
 
 	// Channel list
 	HWND channelList = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("ListBox"),
-		TEXT(""), WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_HASSTRINGS,
+		TEXT(""), WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_HASSTRINGS | LBS_NOTIFY,
 		0, 50, 80, wHeight - 100,
 		root, (HMENU)CHANNELLIST, NULL, NULL);
+	oldChannelListProc = (WNDPROC)SetWindowLongPtr(channelList, GWLP_WNDPROC, (LONG_PTR)ChannelListProc);
 
 	// Tab control
 	HWND tabCtrl = CreateWindowEx(0, WC_TABCONTROL,
 		TEXT("Channel count"), WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
 		300, 50, wWidth - 300, wHeight - 50,
-		root, (HMENU)123, NULL, NULL);
+		root, (HMENU)TAB_CTRL, NULL, NULL);
 	oldTabCtrlProc = (WNDPROC)SetWindowLongPtr(tabCtrl, GWLP_WNDPROC, (LONG_PTR)TabControlProc);
 
 
@@ -326,12 +452,21 @@ void ui_createComponents(HWND root, int wWidth, int wHeight) {
 		0, 0, wWidth - 200, wHeight - 150,
 		tabCtrl, (HMENU)TEXTVIEW, NULL, NULL);
 
+	HFONT hFont = CreateFont (16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, ANSI_CHARSET, 
+										OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, 
+										DEFAULT_PITCH, TEXT("Arial"));
+
+	SendMessage(textField, WM_SETFONT, (WPARAM)hFont, TRUE);
+
 	// Input field
 	HWND inputField = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("Edit"),
 		TEXT("/connect dreamhack.se.quakenet.org:6667"), WS_CHILD | WS_VISIBLE | ES_WANTRETURN,
 		0, wHeight - 80, wWidth - 300, 40,
 		tabCtrl, (HMENU)INPUT, NULL, NULL);
 	oldEditProc = (WNDPROC)SetWindowLongPtr(inputField, GWLP_WNDPROC, (LONG_PTR)EditControlProc);
+
+	SendMessage(inputField, WM_SETFONT, (WPARAM)hFont, TRUE);
+
 
 	// Terminate connection button
 	HWND terminateBtn = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("Button"),
@@ -344,11 +479,11 @@ void ui_createComponents(HWND root, int wWidth, int wHeight) {
 	ui.textField = textField;
 	ui.channelList = channelList;
 	ui.userList = userList;
-	ui.channelCount = channelCount;
+	ui.channelQueryBtn = channelQueryBtn;
 	ui.tabCtrl = tabCtrl;
 
 	// TODO dynamic text
-	SetDlgItemText(channelCount, 42, "asd regards");
+	//SetDlgItemText(channelCount, 42, "asd regards");
 
 	SendMessage(inputField, EM_SETLIMITTEXT, MAX_TEXT_LEN, 0); // Max num of bytes in input field
 	SendMessage(textField, EM_SETLIMITTEXT, MAX_TEXT_BUF_PER_CHANNEL, 0); // Max num of bytes in text view (INTEGER MAX)

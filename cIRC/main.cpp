@@ -10,6 +10,8 @@
 #define WINDOW_OFFSET_X 300
 #define WINDOW_OFFSET_Y 100
 
+bool running = true;
+
 //:keijo_!webchat@dsl-trebrasgw2-54f944-149.dhcp.inet.fi PRIVMSG #kekbottestchannel :moro
 //:keijo_!webchat@dsl-trebrasgw2-54f944-149.dhcp.inet.fi MODE #kekbottestchannel +v kekbot
 //:keijo_!webchat@dsl-trebrasgw2-54f944-149.dhcp.inet.fi PRIVMSG kekbot :moro
@@ -24,6 +26,25 @@ static void append(const char *s1, const char *s2, char *resbuf) {
 	for (int i = 0; i < strlen(s2); ++i) {
 		resbuf[s1len + i] = s2[i];
 	}
+}
+
+static void str_append(char *resbuf, int argc, ...) {
+	va_list ap;
+	va_start(ap, argc);
+
+	int currLen = 0;
+
+	for (int i = 0; i < argc; ++i) {
+		const char *p = va_arg(ap, char*);
+		
+		for (int j = currLen, k = 0; j < currLen + strlen(p); ++j, ++k) {
+			resbuf[j] = p[k];
+		}
+
+		currLen += strlen(p);
+	}
+
+	va_end(ap);
 }
 
 void socketCallback(char *response) {
@@ -49,20 +70,27 @@ void socketCallback(char *response) {
 		append(resbuf, "\r\n", resbuf);
 
 		ui_appendText(resbuf);
-	} else if (strcmp(word, "PRIVMSG") == 0) {
-	    // TODO handle privmsg
-		ui_appendText("<<Privmsg>>");
-		OutputDebugStringA(tmpbuf);
 	} else {
 		// Handle second argument
 		word = strtok(NULL, " ");
 
-		if (strcmp(word, "JOIN") == 0) { // Successful channel join
+		if (strcmp(word, "PRIVMSG") == 0) {
+			// Either the name of the user, or a channel where he is in
+			char *receiver = strtok(NULL, " ");
+			char *msg = strtok(NULL, ":");
+			char *sender = strtok(response, "!");
+
+			// Discard the initial ":"
+			for (int i = 0; i < strlen(sender); ++i)
+				sender[i] = sender[i+1];
+
+			ui_handlePrivMsg(sender, receiver, msg);
+		} else if (strcmp(word, "JOIN") == 0) { // Successful channel join
 			char *channel = strtok(NULL, " ");
 			char *name = strtok(response, "!");
 
 			// Discard the endline
-			channel[strlen(channel) - 1] = 0;
+			channel[strlen(channel) - 1] = '\0';
 
 			// Discard the initial ":"
 			for (int i = 0; i < strlen(name); ++i)
@@ -92,8 +120,8 @@ void socketCallback(char *response) {
 			char *topic = strstr(substr, ":");
 			char *channel = strtok(substr, " ");
 
-			append("<<CHANNEL>> ", channel, resbuf);
-			append(resbuf, "\r\n", resbuf);
+			//append("<<CHANNEL>> ", channel, resbuf);
+			//append(resbuf, "\r\n", resbuf);
 
 			ui_addChannel(channel);
 			
@@ -144,13 +172,29 @@ void uiCallback(Action action, const char *data) {
 		} break;
 		case IRC_SEND_TEXT: {
 			irc_sendText(data);
+			ui_appendText(data);
+		} break;
+		case IRC_QUERY_CHANNELS: {
+			irc_sendText(data);
 		} break;
 	}
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-
 	switch (msg) {
+		case WM_COMMAND: {
+			if (HIWORD(wParam) == BN_CLICKED) {
+				// Send the btn click message forward to the right btn to handle
+				SendMessage((HWND)lParam, msg, wParam, lParam);
+			} else if (HIWORD(wParam) == LBN_DBLCLK) {
+				OutputDebugStringA("WNDPROC LBN DBLCLK\n");
+				SendMessage((HWND)lParam, msg, wParam, lParam);
+			}
+
+			//SendMessage((HWND)lParam, msg, wParam, lParam);
+			//OutputDebugStringA("WNDPROC SOME SHIT EVENT\n");
+
+		} break;
 		case WM_NOTIFY: {
 			LPNMHDR	tc = (LPNMHDR)lParam;
 
@@ -158,6 +202,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			if (ui_clickedTab(tc)) {
 				ui_changeChannel();
 			}
+
+			OutputDebugStringA("WNDPROC SOME SHIT EVENT NOTIFY\n");
 		} break;
 		case WM_CREATE: {
 			ui_init(uiCallback);
@@ -171,7 +217,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			ui_resizeComponents(w, h);
 		} break;
 		case WM_DESTROY: {
-			exit(0);
+			irc_terminateConnection();
+			PostQuitMessage(0);
 		} break;
 	}
 
@@ -192,12 +239,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		WS_OVERLAPPEDWINDOW | WS_VISIBLE,
 		WINDOW_OFFSET_X, WINDOW_OFFSET_Y, WINDOW_WIDTH, WINDOW_HEIGHT, 0, 0, hInstance, 0);
 
-	while (true) {
-		while (GetMessage(&msg, NULL, 0, 0)) {
-
+	BOOL bret;
+	while ((bret = GetMessage(&msg, NULL, 0, 0)) != 0) {
+		if (bret == -1) {
+			// Error
+		} else {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
 	}
+	
 	return (int)msg.wParam;
 }
