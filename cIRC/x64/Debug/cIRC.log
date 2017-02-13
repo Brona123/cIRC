@@ -1,4 +1,4 @@
-﻿Build started 14.12.2016 23:28:23.
+﻿Build started 13.2.2017 16:22:46.
      1>Project "F:\Work\VSProjects\cIRC\cIRC\cIRC.vcxproj" on node 2 (build target(s)).
      1>InitializeBuildStatus:
          Creating "x64\Debug\cIRC.unsuccessfulbuild" because "AlwaysCreate" was specified.
@@ -21,4 +21,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:00.54
+Time Elapsed 00:00:01.05

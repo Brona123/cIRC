@@ -18,7 +18,7 @@ void ui_createComponents(HWND root, int wWidth, int wHeight);
 void ui_changeChannel();
 void ui_changeChannel(int newChannelIndex);
 void ui_resizeComponents(int wWidth, int wHeight);
-void ui_addChannel(const char *channelName);
+void ui_addChannel(const char *channelName, const char *userCount, const char *topic);
 void ui_addUser(const char *userName);
 bool ui_clickedTab(LPNMHDR tc);
 

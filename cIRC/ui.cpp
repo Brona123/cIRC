@@ -23,6 +23,9 @@
 #define TEXT_VIEW_BG RGB(27, 28, 22)
 #define TEXT_VIEW_FG RGB(255, 0, 0)
 
+const char* INIT_TEXT_DH = "/connect dreamhack.se.quakenet.org:6667";
+const char* INIT_TEXT_HMN = "/connect irc.handmade.network:7666";
+
 struct UI {
 	HWND textField;
 	HWND channelList;
@@ -107,14 +110,18 @@ void ui_addTab(const char *tabName) {
 }
 
 void ui_handlePrivMsg(const char *sender, const char *receiver, const char *msg) {
-	char channelName[MAX_CHANNEL_NAME_LEN];
+	OutputDebugStringA("SENDER-");
+	OutputDebugStringA(sender);
+	OutputDebugStringA("RECEIVER-");
+	OutputDebugStringA(receiver);
+	OutputDebugStringA("MSG-");
+	OutputDebugStringA(msg);
+	OutputDebugStringA("ENDL");
+	char channelName[MAX_CHANNEL_NAME_LEN] = {};
 	currentTabName(channelName);
 
-	// TODO replace '\r' or '\n' because for some reason it is there
-	char lastChar = channelName[strlen(channelName) - 1];
-	if (lastChar == '\n' || lastChar == '\r') {
-		channelName[strlen(channelName) - 1] = '\0';
-	}
+	// Replaces newlines from the channel name
+	channelName[strcspn(channelName, "\r\n")] = 0;
 
 	// PRIVMSG sent directly to us
 	if (strcmp(receiver, "kekbot") == 0) {
@@ -130,12 +137,16 @@ void ui_handlePrivMsg(const char *sender, const char *receiver, const char *msg)
 		}
 	} else {
 		// PRIVMSG sent to the current visible channel
+		OutputDebugStringA("CURRENTLY VISIBLE CHANNEL-");
+		OutputDebugStringA(channelName);
+		OutputDebugStringA("ENDL\n");
+
 		if (strcmp(channelName, receiver) == 0) {
 			char buf[MAX_TEXT_LEN] = {};
 			str_append(buf, 5, "[", sender, "] ", msg, "\n");
 			ui_appendText(buf);
-		// PRIVMSG sent to a channel currently not visible
 		} else {
+			// PRIVMSG sent to a channel currently not visible
 			int tabCount = SendMessage(ui.tabCtrl, TCM_GETITEMCOUNT, 0, 0);
 
 			// Find the correct channel and append to its text buffer
@@ -149,12 +160,13 @@ void ui_handlePrivMsg(const char *sender, const char *receiver, const char *msg)
 
 				TabCtrl_GetItem(ui.tabCtrl, i, &t);
 
-				tabName[strlen(tabName) - 1] = '\0';
+				tabName[strcspn(tabName, "\r\n")] = 0;
 
 				if (strcmp(receiver, tabName) == 0) {
 					char buf[MAX_TEXT_LEN] = {};
 					str_append(buf, 5, "[", sender, "] ", msg, "\n");
 					str_append(channelTextBuf[i], 2, channelTextBuf[i], buf);
+					OutputDebugStringA("APPENDED TO CORRECT TEXT BUFFER\n");
 					break;
 				}
 			}
@@ -172,8 +184,19 @@ void ui_handleForeignJoin(const char *channelName, const char *userName) {
 	SendMessage(ui.tabCtrl, FOREIGN_JOIN, (WPARAM)channelName, (LPARAM)userName);
 }
 
-void ui_addChannel(const char *channelName) {
-	SendMessage(ui.channelList, LB_ADDSTRING, 0, (LPARAM)channelName);
+void ui_addChannel(const char *channelName, const char *userCount, const char *topic) {
+	LVITEM lvi = {};
+	lvi.mask = LVIF_TEXT;
+	lvi.pszText = (LPSTR)channelName;
+	lvi.iSubItem = 0;
+	lvi.iItem = 0;
+	lvi.cchTextMax = strlen(channelName);
+
+	int index = ListView_InsertItem(ui.channelList, &lvi);
+	ListView_SetItemText(ui.channelList, index, 1, (LPSTR)userCount);
+	ListView_SetItemText(ui.channelList, index, 2, (LPSTR)topic);
+
+	//SendMessage(ui.channelList, LB_ADDSTRING, 0, (LPARAM)channelName);
 }
 
 void ui_addUser(const char *userName) {
@@ -411,7 +434,7 @@ void ui_createComponents(HWND root, int wWidth, int wHeight) {
 	icex.dwICC = ICC_TAB_CLASSES;
 	InitCommonControlsEx(&icex);
 
-	// Channel counter
+	// Query channels button
 	HWND channelQueryBtn = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("Button"),
 		TEXT("Query channels"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON,
 		0, 30, 80, 20,
@@ -419,11 +442,31 @@ void ui_createComponents(HWND root, int wWidth, int wHeight) {
 	oldQueryChannelsProc = (WNDPROC)SetWindowLongPtr(channelQueryBtn, GWLP_WNDPROC, (LONG_PTR)QueryChannelsBtnProc);
 
 	// Channel list
-	HWND channelList = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("ListBox"),
-		TEXT(""), WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_HASSTRINGS | LBS_NOTIFY,
-		0, 50, 80, wHeight - 100,
-		root, (HMENU)CHANNELLIST, NULL, NULL);
-	oldChannelListProc = (WNDPROC)SetWindowLongPtr(channelList, GWLP_WNDPROC, (LONG_PTR)ChannelListProc);
+	//HWND channelList = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("ListBox"),
+	//	TEXT(""), WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_HASSTRINGS | LBS_NOTIFY,
+	//	0, 50, 80, wHeight - 100,
+	//	root, (HMENU)CHANNELLIST, NULL, NULL);
+	//oldChannelListProc = (WNDPROC)SetWindowLongPtr(channelList, GWLP_WNDPROC, (LONG_PTR)ChannelListProc);
+
+	HWND channelList = CreateWindow(WC_LISTVIEW, "", 
+		WS_VISIBLE|WS_BORDER|WS_CHILD | LVS_REPORT | LVS_EDITLABELS | LVS_SORTASCENDING, 
+         0, 50, 200, wHeight - 100, 
+         root, (HMENU)1234, NULL, NULL);
+	ui.channelList = channelList;
+	
+	// ListView Column data
+	LVCOLUMN lvc = {};
+	lvc.mask = LVCF_TEXT | LVCF_WIDTH;
+	lvc.cx = 50;
+	lvc.pszText = "Channel";
+
+	ListView_InsertColumn(channelList, 1, &lvc);
+	lvc.cx = 50;
+	lvc.pszText = "People";
+	ListView_InsertColumn(channelList, 2, &lvc);
+	lvc.pszText = "Topic";
+	lvc.cx = 200;
+	ListView_InsertColumn(channelList, 2, &lvc);
 
 	// Tab control
 	HWND tabCtrl = CreateWindowEx(0, WC_TABCONTROL,
@@ -460,7 +503,7 @@ void ui_createComponents(HWND root, int wWidth, int wHeight) {
 
 	// Input field
 	HWND inputField = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("Edit"),
-		TEXT("/connect dreamhack.se.quakenet.org:6667"), WS_CHILD | WS_VISIBLE | ES_WANTRETURN,
+		TEXT(INIT_TEXT_HMN), WS_CHILD | WS_VISIBLE | ES_WANTRETURN,
 		0, wHeight - 80, wWidth - 300, 40,
 		tabCtrl, (HMENU)INPUT, NULL, NULL);
 	oldEditProc = (WNDPROC)SetWindowLongPtr(inputField, GWLP_WNDPROC, (LONG_PTR)EditControlProc);
@@ -477,7 +520,7 @@ void ui_createComponents(HWND root, int wWidth, int wHeight) {
 	ui.inputField = inputField;
 	ui.terminateBtn = terminateBtn;
 	ui.textField = textField;
-	ui.channelList = channelList;
+	//ui.channelList = channelList;
 	ui.userList = userList;
 	ui.channelQueryBtn = channelQueryBtn;
 	ui.tabCtrl = tabCtrl;

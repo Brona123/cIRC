@@ -12,10 +12,6 @@
 
 bool running = true;
 
-//:keijo_!webchat@dsl-trebrasgw2-54f944-149.dhcp.inet.fi PRIVMSG #kekbottestchannel :moro
-//:keijo_!webchat@dsl-trebrasgw2-54f944-149.dhcp.inet.fi MODE #kekbottestchannel +v kekbot
-//:keijo_!webchat@dsl-trebrasgw2-54f944-149.dhcp.inet.fi PRIVMSG kekbot :moro
-
 // TODO move this function into its own header?
 static void append(const char *s1, const char *s2, char *resbuf) {
 	size_t s1len = strlen(s1);
@@ -84,9 +80,17 @@ void socketCallback(char *response) {
 			for (int i = 0; i < strlen(sender); ++i)
 				sender[i] = sender[i+1];
 
+
 			ui_handlePrivMsg(sender, receiver, msg);
+			OutputDebugStringA("PRIVMSG RECEIVED AND HANDLED\n");
 		} else if (strcmp(word, "JOIN") == 0) { // Successful channel join
 			char *channel = strtok(NULL, " ");
+
+			// Quick fix for handmade network 'JOIN :#<channel>' protocol bug
+			if (channel[0] != '#') {
+				strncpy(channel, channel + 1, strlen(channel) - 1);
+			}
+
 			char *name = strtok(response, "!");
 
 			// Discard the endline
@@ -95,7 +99,7 @@ void socketCallback(char *response) {
 			// Discard the initial ":"
 			for (int i = 0; i < strlen(name); ++i)
 				name[i] = name[i+1];
-
+			
 			name[strlen(name)] = 0;
 
 			// We joined a new channel
@@ -119,11 +123,12 @@ void socketCallback(char *response) {
 			char *substr = strstr(response, "#");
 			char *topic = strstr(substr, ":");
 			char *channel = strtok(substr, " ");
+			char *userCount = strtok(NULL, " ");
 
 			//append("<<CHANNEL>> ", channel, resbuf);
 			//append(resbuf, "\r\n", resbuf);
 
-			ui_addChannel(channel);
+			ui_addChannel(channel, userCount, topic);
 			
 			// TODO handle this in ui code
 			//char buf[128];
@@ -132,12 +137,12 @@ void socketCallback(char *response) {
 			//OutputDebugStringA(buf);
 
 			// If channel has topic
-			if (strlen(topic) > 1) {
+			//if (strlen(topic) > 1) {
 				//s1 = ":Topic:";
 				//s2 = topic;
 
 				//appendText(*ui, (s1 + s2).c_str());
-			}
+			//}
 
 		} else if (strcmp(word, NAMES) == 0) {
 			ui_appendText(response);
@@ -202,8 +207,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			if (ui_clickedTab(tc)) {
 				ui_changeChannel();
 			}
-
-			OutputDebugStringA("WNDPROC SOME SHIT EVENT NOTIFY\n");
 		} break;
 		case WM_CREATE: {
 			ui_init(uiCallback);
